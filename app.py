@@ -3,8 +3,8 @@ from apiflask import APIFlask
 from db import Base, engine
 import models  
 from routes import bp as voucher_bp
-
-
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 app = APIFlask(__name__)
 
 # 建立資料表
@@ -21,15 +21,15 @@ def ping():
 
 def create_app(test_config=None):
     app = APIFlask(__name__)
-
-    if test_config is None:
-        # 正常模式：用原本的 vouchers.db
-        Base.metadata.create_all(bind=engine)
+  
+    if test_config is not None and "engine" in test_config:
+        engine = test_config["engine"]
     else:
-        # 測試模式：用外部傳進來的 engine
-        test_engine = test_config["engine"]
-        Base.metadata.create_all(bind=test_engine)
-
+        engine = create_engine("sqlite:///vouchers.db", future=True)
+    app.engine = engine
+    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
+    app.session_local = SessionLocal
+ 
     app.register_blueprint(voucher_bp)
     return app
 

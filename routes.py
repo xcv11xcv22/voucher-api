@@ -1,8 +1,7 @@
 from apiflask import APIBlueprint, abort
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
-
-from db import SessionLocal
+from flask import current_app
 from models import Voucher, VoucherStatus, STATUS_MAP
 from schemas import VoucherCreateSchema, VoucherOutSchema, VoucherUpdateSchema, VoucherFilterSchema
 from datetime import datetime
@@ -23,6 +22,9 @@ def apply_filters(stmt, **filters):
         select(Voucher):經過加上 where 條件後的 SQLAlchemy Select 查詢物件
 
     """
+    if id := filters.get("id"):
+        stmt = stmt.where(Voucher.id == id)
+
     if code := filters.get("code"):
         stmt = stmt.where(Voucher.code == code)
 
@@ -54,7 +56,7 @@ def create_voucher(json_data):
     Raises:
         400 Bad Request: 優惠券已存在
     """
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         voucher = Voucher(
             code=json_data['code'],
@@ -70,7 +72,8 @@ def create_voucher(json_data):
         session.commit()
         session.refresh(voucher)
         return voucher
-    except IntegrityError:
+    except IntegrityError as e:
+        print(str(e.orig))
         session.rollback()
         abort(400, message='Voucher code already exists')
     finally:
@@ -90,7 +93,7 @@ def list_vouchers(query_data):
     Returns:
         list[Voucher]: 由VoucherOutSchema(many=True) 序列化為列表輸出
     """
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         stmt = select(Voucher)
         stmt = apply_filters(stmt, **query_data)
@@ -113,7 +116,7 @@ def get_voucher(voucher_id):
     Raises:
         404 Bad Request: 優惠券不存在
     """
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         voucher = session.get(Voucher, voucher_id)
         if not voucher:
@@ -139,7 +142,7 @@ def update_voucher(voucher_id, json_data):
     Raises:
         HTTP 404: 若優惠券不存在。
     """
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         voucher = session.get(Voucher, voucher_id)
         if not voucher:
@@ -160,12 +163,12 @@ def update_voucher(voucher_id, json_data):
 
 @bp.delete('/')
 @bp.input(VoucherFilterSchema)
-def delete_voucher(json):
+def delete_voucher(json_data):
     """
     刪除優惠券
 
     Args:
-        json(dict):已通過 VoucherFilterSchema 遇刪除的參數
+        json_data(dict):已通過 VoucherFilterSchema 遇刪除的參數
 
     Returns:
         dict: 刪除成功訊息，{"message": "Voucher id, code deleted"}。
@@ -173,10 +176,10 @@ def delete_voucher(json):
     Raises:
         HTTP 404: 優惠券不存在。
     """
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         stmt = select(Voucher)
-        stmt = apply_filters(stmt, **json)
+        stmt = apply_filters(stmt, **json_data)
         voucher = session.scalars(stmt).first()
 
         if not voucher:

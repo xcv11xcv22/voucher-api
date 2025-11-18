@@ -1,4 +1,3 @@
-# schemas.py
 from apiflask import Schema
 from marshmallow import fields, validate
 
@@ -49,6 +48,7 @@ class VoucherOutSchema(VoucherBaseSchema):
     updated_at = fields.DateTime()
 
 class VoucherFilterSchema(Schema):
+    id = fields.Integer()
     code = fields.String()
     name = fields.String()
     status = fields.String(validate=validate.OneOf(["unused", "used", "expired"]))
