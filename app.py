@@ -1,14 +1,12 @@
 from apiflask import APIFlask
 
-from db import Base, engine
+from db import Base
 import models  
 from routes import bp as voucher_bp
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 app = APIFlask(__name__)
 
-# 建立資料表
-Base.metadata.create_all(bind=engine)
 
 # 註冊 voucher API
 app.register_blueprint(voucher_bp)

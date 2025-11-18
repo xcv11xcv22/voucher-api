@@ -8,37 +8,12 @@ from datetime import datetime
 import redis
 import uuid
 import json
+from voucher_repository import VoucherRepository
 bp = APIBlueprint('vouchers', __name__, url_prefix='/vouchers')
 redis_client = redis.Redis(host="localhost", port=6378, db=0)
 
 QUEUE_KEY = "voucher_jobs"
-def apply_filters(stmt, **filters):
-    """
-    根據過濾條件動態組合 SQLAlchemy Select 查詢
-    Args:
-        stmt (select): SQLAlchemy select(Voucher) 查詢物件。
-        filters(dict): 從 VoucherFilterSchema 驗證後取得的篩選條件 dict
-    Returns:
-        select(Voucher):經過加上 where 條件後的 SQLAlchemy Select 查詢物件
 
-    """
-    if id := filters.get("id"):
-        stmt = stmt.where(Voucher.id == id)
-
-    if code := filters.get("code"):
-        stmt = stmt.where(Voucher.code == code)
-
-    if name := filters.get("name"):
-        stmt = stmt.where(Voucher.name.ilike(f"%{name}%"))
-
-    if status := filters.get("status"):
-        t = VoucherStatus(STATUS_MAP[status])
-        stmt = stmt.where(Voucher.status == t)
-    
-    if filters.get("is_active") is not None:
-        stmt = stmt.where(Voucher.is_active == filters["is_active"])
-
-    return stmt
 
 
 @bp.post('/')
@@ -56,7 +31,7 @@ def create_voucher(json_data):
     Raises:
         400 Bad Request: 優惠券已存在
     """
-    session = current_app.session_local()
+    repo = VoucherRepository(current_app.session_local())
     try:
         voucher = Voucher(
             code=json_data['code'],
@@ -68,16 +43,16 @@ def create_voucher(json_data):
             is_active=json_data.get('is_active', True),
             status=VoucherStatus(json_data.get('status', 0)),
         )
-        session.add(voucher)
-        session.commit()
-        session.refresh(voucher)
+        repo.add(voucher)
+        repo.commit()
+        repo.refresh(voucher)
         return voucher
     except IntegrityError as e:
         print(str(e.orig))
-        session.rollback()
+        repo.rollback()
         abort(400, message='Voucher code already exists')
     finally:
-        session.close()
+        repo.close()
 
 
 @bp.get('/')
@@ -93,14 +68,12 @@ def list_vouchers(query_data):
     Returns:
         list[Voucher]: 由VoucherOutSchema(many=True) 序列化為列表輸出
     """
-    session = current_app.session_local()
+    repo = VoucherRepository(current_app.session_local())
     try:
-        stmt = select(Voucher)
-        stmt = apply_filters(stmt, **query_data)
-        vouchers = session.scalars(stmt).all()
+        vouchers = repo.list(**query_data)
         return vouchers
     finally:
-        session.close()
+        repo.close()
 
 @bp.get('/<int:voucher_id>')
 @bp.output(VoucherOutSchema)
@@ -116,14 +89,14 @@ def get_voucher(voucher_id):
     Raises:
         404 Bad Request: 優惠券不存在
     """
-    session = current_app.session_local()
+    repo = VoucherRepository(current_app.session_local())
     try:
-        voucher = session.get(Voucher, voucher_id)
+        voucher = repo.get(voucher_id)
         if not voucher:
             abort(404, message='Voucher not found')
         return voucher
     finally:
-        session.close()
+        repo.close()
 
 @bp.patch('/<int:voucher_id>')
 @bp.input(VoucherUpdateSchema(partial=True))
@@ -142,9 +115,9 @@ def update_voucher(voucher_id, json_data):
     Raises:
         HTTP 404: 若優惠券不存在。
     """
-    session = current_app.session_local()
+    repo = VoucherRepository(current_app.session_local())
     try:
-        voucher = session.get(Voucher, voucher_id)
+        voucher = repo.get(voucher_id)
         if not voucher:
             abort(404, message='Voucher not found')
 
@@ -154,11 +127,11 @@ def update_voucher(voucher_id, json_data):
                 value = VoucherStatus(value)
             setattr(voucher, key, value)
         voucher.updated_at = datetime.utcnow()
-        session.commit()
-        session.refresh(voucher)
+        repo.commit()
+        repo.refresh(voucher)
         return voucher
     finally:
-        session.close()
+        repo.close()
 
 
 @bp.delete('/')
@@ -176,20 +149,18 @@ def delete_voucher(json_data):
     Raises:
         HTTP 404: 優惠券不存在。
     """
-    session = current_app.session_local()
+    
+    repo = VoucherRepository(current_app.session_local())
     try:
-        stmt = select(Voucher)
-        stmt = apply_filters(stmt, **json_data)
-        voucher = session.scalars(stmt).first()
-
+        voucher = repo.filter(**json_data)
         if not voucher:
             abort(404, message='Voucher not found')
 
-        session.delete(voucher)
-        session.commit()
+        repo.delete(voucher)
+        repo.commit()
         return {'message': f'Voucher id:{voucher.id},code:{voucher.code} deleted'}
     finally:
-        session.close()
+        repo.close()
 
 @bp.post("/bulk")
 @bp.input(VoucherCreateSchema(many=True), arg_name="vouchers_data")
