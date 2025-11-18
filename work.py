@@ -1,14 +1,13 @@
 import json
-import time
 import redis
 from sqlalchemy.exc import IntegrityError
-
-from db import SessionLocal
+import os
 from models import Voucher, VoucherStatus
 
 QUEUE_KEY = "voucher_jobs"
-
-redis_client = redis.Redis(host="localhost", port=6378, db=0)
+host = os.getenv("REDIS_HOST", "localhost")
+port = int(os.getenv("REDIS_PORT", 6378))
+redis_client = redis.Redis(host=host, port=port, db=0)
 
 def process_job(job: dict):
     """

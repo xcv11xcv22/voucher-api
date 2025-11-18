@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 from sqlalchemy import (
     Integer,
@@ -14,7 +14,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from db import Base
 from enums import IntEnumType
-
+def utcnow():
+    return datetime.now(timezone.utc)
 class VoucherStatus(enum.IntEnum):
     UNUSED = 0   # 未使用
     USED = 1       # 已使用
@@ -53,12 +54,13 @@ class Voucher(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=datetime.now(timezone.utc),
     )
     # 新增的欄位 更新時間
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utcnow,
+        onupdate=utcnow,
     )
+

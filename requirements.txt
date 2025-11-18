@@ -1,0 +1,6 @@
+APIFLask
+Flask
+SQLAlchemy
+redis
+pytest
+gunicorn

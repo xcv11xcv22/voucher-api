@@ -4,17 +4,18 @@ from sqlalchemy import select
 from flask import current_app
 from models import Voucher, VoucherStatus, STATUS_MAP
 from schemas import VoucherCreateSchema, VoucherOutSchema, VoucherUpdateSchema, VoucherFilterSchema
-from datetime import datetime
+from datetime import datetime, timezone
 import redis
 import uuid
 import json
 from voucher_repository import VoucherRepository
+import os
 bp = APIBlueprint('vouchers', __name__, url_prefix='/vouchers')
-redis_client = redis.Redis(host="localhost", port=6378, db=0)
+host = os.getenv("REDIS_HOST", "localhost")
+port = int(os.getenv("REDIS_PORT", 6378))
+redis_client = redis.Redis(host=host, port=port, db=0)
 
 QUEUE_KEY = "voucher_jobs"
-
-
 
 @bp.post('/')
 @bp.input(VoucherCreateSchema)
@@ -126,7 +127,6 @@ def update_voucher(voucher_id, json_data):
             if key == 'status':
                 value = VoucherStatus(value)
             setattr(voucher, key, value)
-        voucher.updated_at = datetime.utcnow()
         repo.commit()
         repo.refresh(voucher)
         return voucher
