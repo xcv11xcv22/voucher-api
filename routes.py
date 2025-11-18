@@ -7,7 +7,8 @@ from models import Voucher, VoucherStatus, STATUS_MAP
 from schemas import VoucherCreateSchema, VoucherOutSchema, VoucherUpdateSchema, VoucherFilterSchema
 from datetime import datetime
 import redis
-
+import uuid
+import json
 bp = APIBlueprint('vouchers', __name__, url_prefix='/vouchers')
 redis_client = redis.Redis(host="localhost", port=6378, db=0)
 
@@ -187,3 +188,44 @@ def delete_voucher(json):
     finally:
         session.close()
 
+@bp.post("/bulk")
+@bp.input(VoucherCreateSchema(many=True), arg_name="vouchers_data")
+def bulk_create_vouchers(vouchers_data):
+    """
+    一次大量建立多筆優惠券
+
+    Args:
+        vouchers_data(dict): VoucherCreateSchema(many=True)驗證的 新增的參數(List)
+
+    Returns:
+        dict: job資訊
+        return {
+            "job_ids": job_ids, 
+            "queued": total,         
+            "message": "Jobs accepted and queued",
+        }
+
+    """
+    batch_size = 5000
+    job_ids = []
+    total = len(vouchers_data)
+
+    for start in range(0, total, batch_size):
+        end = start + batch_size
+        batch = vouchers_data[start:end]
+
+        job_id = str(uuid.uuid4())
+        job_ids.append(job_id)
+
+        job = {
+            "job_id": job_id,
+            "vouchers": batch,
+        }
+
+        redis_client.rpush(QUEUE_KEY, json.dumps(job, ensure_ascii=False))
+
+    return {
+        "job_ids": job_ids, 
+        "queued": total,         
+        "message": "Jobs accepted and queued",
+    }
