@@ -3,7 +3,9 @@ import redis
 from sqlalchemy.exc import IntegrityError
 import os
 from models import Voucher, VoucherStatus
-
+from flask import current_app
+from app import create_app 
+from models import  STATUS_MAP
 QUEUE_KEY = "voucher_jobs"
 host = os.getenv("REDIS_HOST", "localhost")
 port = int(os.getenv("REDIS_PORT", 6378))
@@ -20,7 +22,7 @@ def process_job(job: dict):
     """
     vouchers_data = job["vouchers"]
 
-    session = SessionLocal()
+    session = current_app.session_local()
     try:
         vouchers = []
         for data in vouchers_data:
@@ -33,7 +35,7 @@ def process_job(job: dict):
                     valid_from=data.get("valid_from"),
                     valid_to=data.get("valid_to"),
                     is_active=data.get("is_active", True),
-                    status=VoucherStatus(data.get("status", "unused")),
+                    status=VoucherStatus(STATUS_MAP[data.get("status", "unused")]),
                 )
             )
         session.add_all(vouchers)
@@ -54,12 +56,14 @@ def process_job(job: dict):
 
 def main():
     print("Worker started, waiting for jobs ...")
-    while True:
-        # BLPOP 會阻塞等待，右邊的 0 代表一直等
-        _, raw = redis_client.blpop(QUEUE_KEY, timeout=0)
-        # raw 是 bytes，要轉成字串再轉 json
-        job = json.loads(raw.decode("utf-8"))
-        process_job(job)
+    app = create_app()
+    with app.app_context():
+        while True:
+            # BLPOP 會阻塞等待，右邊的 0 代表一直等
+            _, raw = redis_client.blpop(QUEUE_KEY, timeout=0)
+            # raw 是 bytes，要轉成字串再轉 json
+            job = json.loads(raw.decode("utf-8"))
+            process_job(job)
 
 
 if __name__ == "__main__":

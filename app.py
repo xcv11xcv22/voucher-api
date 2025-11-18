@@ -23,7 +23,7 @@ def create_app(test_config=None):
     if test_config is not None and "engine" in test_config:
         engine = test_config["engine"]
     else:
-        engine = create_engine("sqlite:///vouchers.db", future=True)
+        engine = create_engine("sqlite:///data/vouchers.db", future=True)
         Base.metadata.create_all(bind=engine)
     app.engine = engine
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)

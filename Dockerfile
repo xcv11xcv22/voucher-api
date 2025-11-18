@@ -19,4 +19,5 @@ COPY . .
 EXPOSE 8000
 
 # 使用 gunicorn 啟動，指定工廠模式 create_app()
-CMD ["gunicorn", "-w", "3", "-b", "0.0.0.0:8000", "app:create_app()"]
+CMD ["gunicorn", "-w", "1", "--threads", "4", "-b", "0.0.0.0:8000", "app:create_app()"]
+
