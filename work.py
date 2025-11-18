@@ -6,11 +6,14 @@ from models import Voucher, VoucherStatus
 from flask import current_app
 from app import create_app 
 from models import  STATUS_MAP
+from db import engine
+from sqlalchemy.orm import sessionmaker
 QUEUE_KEY = "voucher_jobs"
 host = os.getenv("REDIS_HOST", "localhost")
 port = int(os.getenv("REDIS_PORT", 6378))
 redis_client = redis.Redis(host=host, port=port, db=0)
-
+sessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
+session = sessionLocal()
 def process_job(job: dict):
     """
     job 裡的 vouchers 寫入資料庫
@@ -21,8 +24,6 @@ def process_job(job: dict):
     }
     """
     vouchers_data = job["vouchers"]
-
-    session = current_app.session_local()
     try:
         vouchers = []
        

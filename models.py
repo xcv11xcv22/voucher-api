@@ -54,7 +54,7 @@ class Voucher(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.now(timezone.utc),
+        default=utcnow,
     )
     # 新增的欄位 更新時間
     updated_at: Mapped[datetime] = mapped_column(
