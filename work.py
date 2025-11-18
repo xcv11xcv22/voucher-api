@@ -25,6 +25,7 @@ def process_job(job: dict):
     session = current_app.session_local()
     try:
         vouchers = []
+       
         for data in vouchers_data:
             vouchers.append(
                 Voucher(
@@ -35,7 +36,7 @@ def process_job(job: dict):
                     valid_from=data.get("valid_from"),
                     valid_to=data.get("valid_to"),
                     is_active=data.get("is_active", True),
-                    status=VoucherStatus(STATUS_MAP[data.get("status", "unused")]),
+                    status=VoucherStatus(data.get("status", 0)),
                 )
             )
         session.add_all(vouchers)

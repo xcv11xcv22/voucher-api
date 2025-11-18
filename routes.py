@@ -4,7 +4,6 @@ from sqlalchemy import select
 from flask import current_app
 from models import Voucher, VoucherStatus, STATUS_MAP
 from schemas import VoucherCreateSchema, VoucherOutSchema, VoucherUpdateSchema, VoucherFilterSchema
-from datetime import datetime, timezone
 import redis
 import uuid
 import json
